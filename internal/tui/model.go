@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -143,6 +144,16 @@ func (m *Model) startWalkerCmd() tea.Msg {
 		return core.ErrorMsg{Err: fmt.Errorf("invalid output path: %w", err)}
 	}
 	m.cfg.OutputPath = absOutput
+
+	// FAIL FAST: Check if Source Directory actually exists
+	if info, err := os.Stat(m.cfg.SourceDir); err != nil {
+		if os.IsNotExist(err) {
+			return core.ErrorMsg{Err: fmt.Errorf("source directory does not exist: %s", m.cfg.SourceDir)}
+		}
+		return core.ErrorMsg{Err: fmt.Errorf("unable to access source directory: %w", err)}
+	} else if !info.IsDir() {
+		return core.ErrorMsg{Err: fmt.Errorf("source path is not a directory: %s", m.cfg.SourceDir)}
+	}
 
 	// Initialize Ignore Logic
 	matcher := ignore.NewMatcher(m.cfg.SourceDir)

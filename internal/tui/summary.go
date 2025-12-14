@@ -12,9 +12,20 @@ import (
 
 // GenerateSummary creates a rendered Markdown string containing execution statistics.
 func GenerateSummary(stats core.CompletionMsg, cfg *config.RunConfig, width int) string {
+	// Determine Title and Footer based on success
+	title := "# Operation Complete"
+	footer := "> *Content successfully aggregated.*"
+	boxStyle := SuccessBoxStyle
+
+	if stats.TotalFiles == 0 {
+		title = "# Operation Finished (Empty)"
+		footer = "> **Warning**: No files were copied.\n> Check your source path, .contextignore rules, or run with `-v` to debug."
+		boxStyle = WarningBoxStyle
+	}
+
 	// Define the Markdown Template
 	markdown := fmt.Sprintf(`
-# Operation Complete
+%s
 
 | Metric | Value |
 | :--- | :--- |
@@ -24,20 +35,21 @@ func GenerateSummary(stats core.CompletionMsg, cfg *config.RunConfig, width int)
 | **Total Size** | %s |
 | **Duration** | %s |
 
-> *Content successfully aggregated.*
+%s
 `,
+		title,
 		cfg.SourceDir,
 		cfg.OutputPath,
 		stats.TotalFiles,
 		byteCountDecimal(stats.TotalBytes),
 		stats.Elapsed.Round(time.Millisecond),
+		footer,
 	)
 
 	// Configure Glamour Renderer
-	// We dynamically adjust the wrap width to the terminal size to prevent ugly wrapping.
 	renderer, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),        // Detects dark/light terminal
-		glamour.WithWordWrap(width-10), // Padding for safety
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(width-10),
 	)
 	if err != nil {
 		return "Error generating summary."
@@ -49,8 +61,8 @@ func GenerateSummary(stats core.CompletionMsg, cfg *config.RunConfig, width int)
 		return "Error rendering markdown."
 	}
 
-	// Wrap in a box using Lip Gloss (defined in styles.go)
-	return SuccessBoxStyle.Render(strings.TrimSpace(out))
+	// Return styled box
+	return boxStyle.Render(strings.TrimSpace(out))
 }
 
 // byteCountDecimal formats bytes into human-readable strings (kB, MB, GB).

@@ -8,6 +8,7 @@ var (
 	colorHighlight = lipgloss.Color("205")     // Pink
 	colorSuccess   = lipgloss.Color("42")      // Green
 	colorError     = lipgloss.Color("196")     // Red
+	colorWarning   = lipgloss.Color("208")     // Orange
 	colorText      = lipgloss.Color("252")     // White-ish
 	colorHeader    = lipgloss.Color("#FFF7DB") // Warm white
 )
@@ -39,6 +40,13 @@ var (
 	SuccessBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorSuccess).
+			Padding(1, 2).
+			MarginTop(1)
+
+	// WarningBoxStyle for empty results (valid path, but no files copied)
+	WarningBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorWarning).
 			Padding(1, 2).
 			MarginTop(1)
 
