@@ -1,0 +1,39 @@
+# --- Fuli Default Ignore Rules ---
+
+# Version Control
+.git/
+.gitignore
+
+# Go Build Artifacts
+fuli
+*.exe
+*.test
+*.out
+debug
+dist/
+bin/
+
+# Dependency Directories
+vendor/
+
+# Go Module Files (Optional: keep if you want to include dependency info, ignore if source only)
+# go.sum
+
+# Editor/IDE Metadata
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+
+# Fuli Specific
+# Prevent Fuli from reading its own log file or default output
+fuli.debug.log
+fuli_output.txt
+
+go.mod
+go.sum
+.env

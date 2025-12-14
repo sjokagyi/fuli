@@ -1,0 +1,9 @@
+# Ignore build artifacts
+/build
+*.exe
+
+# Ignore dependencies
+node_modules/
+
+# Ignore secrets
+.env
