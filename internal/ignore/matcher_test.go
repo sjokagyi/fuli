@@ -108,3 +108,61 @@ func TestRegexTranslation(t *testing.T) {
 		t.Error("Failed to match middle double star with zero depth")
 	}
 }
+
+func TestMatcher_Negation(t *testing.T) {
+	root := "/project"
+	matcher := ignore.NewMatcher(root)
+
+	patterns := []string{
+		// 1. General ignore
+		"*.secret",
+
+		// 2. Specific Exception (Re-include)
+		"!public.secret",
+
+		// 3. Directory Ignore
+		"vendor/",
+
+		// 4. Attempt to re-include file in ignored dir
+		// (Note: In Git/Fuli, this technically "matches" as False in the matcher,
+		// but the Walker will never reach this file because 'vendor/' returned True,
+		// causing filepath.SkipDir. This test verifies the MATCH logic, not the Walk logic.)
+		"!vendor/README.md",
+
+		// 5. Bad Ordering Regression Test
+		// If we negate first, then ignore later, the file SHOULD be ignored.
+		"!bad_order.log",
+		"*.log",
+	}
+
+	// Compile and add
+	matcher.AddPatterns(ignore.CompileIgnoreLines(patterns))
+
+	tests := []struct {
+		path   string
+		isDir  bool
+		expect bool // true = ignored, false = included
+		desc   string
+	}{
+		// Standard Negation
+		{"/project/api.secret", false, true, "Standard *.secret should be ignored"},
+		{"/project/public.secret", false, false, "Negated !public.secret should be INCLUDED"},
+
+		// Directory Logic
+		{"/project/vendor", true, true, "Vendor directory is ignored"},
+
+		// Order of Operations
+		{"/project/bad_order.log", false, true, "File should be ignored because *.log came AFTER !bad_order.log"},
+		{"/project/ok.log", false, true, "Standard *.log matches"},
+	}
+
+	for _, tt := range tests {
+		path := filepath.FromSlash(tt.path)
+		result := matcher.Matches(path, tt.isDir)
+
+		if result != tt.expect {
+			t.Errorf("FAIL: %s\nPath: %s\nExpected Ignored: %v, Got: %v",
+				tt.desc, path, tt.expect, result)
+		}
+	}
+}

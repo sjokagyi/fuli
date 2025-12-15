@@ -38,3 +38,6 @@ fuli_output.txt
 go.mod
 go.sum
 .env
+
+**/tui/*
+!**/tui/model.go

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sjokagyi/fuli/internal/config"
 	"github.com/sjokagyi/fuli/internal/ignore"
 	"github.com/sjokagyi/fuli/internal/logger"
@@ -42,12 +41,16 @@ func NewWalker(cfg config.RunConfig, m *ignore.Matcher) *Walker {
 	}
 }
 
+// ProgressCallback is a function type that handles events from the Walker.
+type ProgressCallback func(msg interface{})
+
 // Start begins the traversal in a separate goroutine.
-func (w *Walker) Start(prog *tea.Program) {
-	go w.run(prog)
+// It accepts a callback function to report progress.
+func (w *Walker) Start(onEvent ProgressCallback) {
+	go w.run(onEvent)
 }
 
-func (w *Walker) run(prog *tea.Program) {
+func (w *Walker) run(onEvent ProgressCallback) {
 	start := time.Now()
 	var totalFiles int
 	var totalBytes int64
@@ -55,7 +58,7 @@ func (w *Walker) run(prog *tea.Program) {
 	// Initialize Composer
 	comp, err := NewComposer(w.cfg.OutputPath)
 	if err != nil {
-		prog.Send(ErrorMsg{Err: err})
+		onEvent(ErrorMsg{Err: err})
 		return
 	}
 	defer comp.Close()
@@ -69,16 +72,14 @@ func (w *Walker) run(prog *tea.Program) {
 	// Walk
 	err = filepath.WalkDir(w.cfg.SourceDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			// Log I/O errors (permission denied, etc.)
 			logger.Error("Access error during walk", "path", path, "error", err)
 			if w.cfg.IsVerbose {
-				prog.Send(ErrorMsg{Err: fmt.Errorf("access error at %s: %v", path, err)})
+				onEvent(ErrorMsg{Err: fmt.Errorf("access error at %s: %v", path, err)})
 			}
 			return nil // Continue walking other files
 		}
 
 		// Safety: Skip Symlinks explicitly
-		// This prevents infinite loops and referencing files outside the project scope unexpectedly.
 		if d.Type()&fs.ModeSymlink != 0 {
 			logger.Debug("Skipping symlink", "path", path)
 			return nil
@@ -109,7 +110,7 @@ func (w *Walker) run(prog *tea.Program) {
 		if err != nil {
 			logger.Error("Error detecting file type", "path", path, "error", err)
 			if w.cfg.IsVerbose {
-				prog.Send(ErrorMsg{Err: fmt.Errorf("error checking binary %s: %v", path, err)})
+				onEvent(ErrorMsg{Err: fmt.Errorf("error checking binary %s: %v", path, err)})
 			}
 			return nil
 		}
@@ -118,7 +119,7 @@ func (w *Walker) run(prog *tea.Program) {
 			return nil
 		}
 
-		// Composition
+		// 6. Composition
 		f, err := os.Open(path)
 		if err != nil {
 			logger.Error("Failed to open file", "path", path, "error", err)
@@ -138,15 +139,15 @@ func (w *Walker) run(prog *tea.Program) {
 
 		bytesWritten, err := comp.Append(fileName, relDir, f)
 		if err != nil {
-			prog.Send(ErrorMsg{Err: err})
+			onEvent(ErrorMsg{Err: err})
 			return nil
 		}
 
 		totalFiles++
 		totalBytes += bytesWritten
 
-		// Send progress update to UI
-		prog.Send(FileProcessedMsg{
+		// Send progress update
+		onEvent(FileProcessedMsg{
 			Path:  displayPath,
 			Bytes: bytesWritten,
 		})
@@ -155,11 +156,11 @@ func (w *Walker) run(prog *tea.Program) {
 	})
 
 	if err != nil {
-		prog.Send(ErrorMsg{Err: err})
+		onEvent(ErrorMsg{Err: err})
 	}
 
 	// Send final completion stats
-	prog.Send(CompletionMsg{
+	onEvent(CompletionMsg{
 		TotalFiles: totalFiles,
 		TotalBytes: totalBytes,
 		Elapsed:    time.Since(start),

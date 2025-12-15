@@ -158,17 +158,14 @@ func (m *Model) startWalkerCmd() tea.Msg {
 	// Initialize Ignore Logic
 	matcher := ignore.NewMatcher(m.cfg.SourceDir)
 
-	// Load defaults
 	defaultIgnorePath := filepath.Join(m.cfg.SourceDir, ".contextignore")
 	if patterns, err := ignore.ParseFile(defaultIgnorePath); err == nil {
 		matcher.AddPatterns(patterns)
-
-		// Convert string slice to Rules before adding
+		// Explicitly ignore the config file itself
 		manualRules := ignore.CompileIgnoreLines([]string{".contextignore"})
 		matcher.AddPatterns(manualRules)
 	}
 
-	// Load custom ignore files
 	for _, file := range m.cfg.IgnoreFiles {
 		if patterns, err := ignore.ParseFile(file); err == nil {
 			matcher.AddPatterns(patterns)
@@ -177,7 +174,9 @@ func (m *Model) startWalkerCmd() tea.Msg {
 
 	// Initialize and Start Walker
 	m.walker = core.NewWalker(*m.cfg, matcher)
-	m.walker.Start(m.program)
+	m.walker.Start(func(msg interface{}) {
+		m.program.Send(msg)
+	})
 
 	return nil
 }
